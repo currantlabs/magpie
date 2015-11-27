@@ -20,6 +20,7 @@ const fileModeFlag = "mode"
 const fileModTimeFlag = "modtime"
 const outputFlag = "output"
 const ignoreFlag = "ignore"
+const watchFlag = "watch"
 
 func main() {
 
@@ -70,6 +71,10 @@ func main() {
 			Name:  ignoreFlag,
 			Usage: "Regex pattern to ignore",
 		},
+		cli.BoolFlag{
+			Name:  watchFlag,
+			Usage: "Watch filesystem for changes",
+		},
 	}
 
 	app.Run(os.Args)
@@ -87,10 +92,15 @@ func action(c *cli.Context) {
 		fmt.Printf("Error initializing: %v", err)
 		os.Exit(1)
 	}
-	err = m.Collect()
-	if err != nil {
-		fmt.Printf("Error collecting: %v", err)
-		os.Exit(1)
+	watch := c.Bool(watchFlag)
+	if watch {
+		m.Watch()
+	} else {
+		err = m.Collect()
+		if err != nil {
+			fmt.Printf("Error collecting: %v", err)
+			os.Exit(1)
+		}
 	}
 }
 
