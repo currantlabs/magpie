@@ -137,10 +137,13 @@ func writeHeader(w io.Writer, fc *fileCollection, c *config) (err error) {
 		return
 	}
 
-	imports := []string{"fmt", "os", "reflect", "time", "unsafe"}
+	imports := []string{"fmt", "os", "time"}
 
 	if c.FileSystem {
 		imports = append(imports, "net/http")
+	}
+	if c.Unsafe {
+		imports = append(imports, "reflect", "unsafe")
 	}
 
 	// Write imports
@@ -207,7 +210,12 @@ func writeInit(w assetWriter, fc *fileCollection, c *config) (err error) {
 
 func writeRead(w io.Writer, c *config) (err error) {
 	_, err = fmt.Fprintf(w, `	read := func(s string) []byte {
-		var empty [0]byte
+`)
+	if err != nil {
+		return
+	}
+	if c.Unsafe {
+		_, err = fmt.Fprintf(w, `		var empty [0]byte
 		sx := (*reflect.StringHeader)(unsafe.Pointer(&s))
 		b := empty[:]
 		bx := (*reflect.SliceHeader)(unsafe.Pointer(&b))
@@ -215,11 +223,15 @@ func writeRead(w io.Writer, c *config) (err error) {
 		bx.Len = len(s)
 		bx.Cap = bx.Len
 	`)
-	if err != nil {
-		return
+		if err != nil {
+			return
+		}
+	} else {
+		_, err = fmt.Fprintf(w, `		b := []byte(s)
+`)
 	}
 	if c.Compress {
-		_, err = fmt.Fprint(w, `	b, err := magpie.Decompress(b)
+		_, err = fmt.Fprint(w, `		b, err := magpie.Decompress(b)
 		if err != nil {
 			panic("Error decompressing asset" + err.Error())
 		}
@@ -271,19 +283,20 @@ func writeAsset(w assetWriter, a asset, c *config) error {
 }
 
 func writeContent(w io.Writer) (err error) {
-	fmt.Fprint(w, `func Content(name string) ([]byte, error) {
+	fmt.Fprint(w, `
+func Content(name string) ([]byte, error) {
 	if a, ok := assets[name]; ok {
 		return a.Content, nil
 	}
 	return nil, fmt.Errorf("Asset %s not found", name)
 }
-
 `)
 	return
 }
 
 func writeFileSystem(w io.Writer) (err error) {
-	fmt.Fprint(w, `func FileSystem(prefix string) http.FileSystem {
+	fmt.Fprint(w, `
+func FileSystem(prefix string) http.FileSystem {
 	return magpie.NewFileSystem(assets, prefix)
 }
 `)
