@@ -14,8 +14,8 @@ func (m *Magpie) Watch() {
 }
 
 type watcher struct {
+	*rfsnotify.RWatcher
 	c *config
-	w *rfsnotify.RWatcher
 }
 
 func newWatcher(c *config) *watcher {
@@ -23,19 +23,19 @@ func newWatcher(c *config) *watcher {
 }
 
 func (w *watcher) watch() (err error) {
-	if w.w != nil {
-		w.w.Close()
-		w.w = nil
+	if w.RWatcher != nil {
+		w.Close()
+		w.RWatcher = nil
 	}
-	w.w, err = rfsnotify.NewWatcher()
+	w.RWatcher, err = rfsnotify.NewWatcher()
 	if err != nil {
 		return
 	}
-	for _, input := range w.c.Inputs {
-		if input.Recursive {
-			w.w.AddRecursive(input.Path)
+	for _, input := range w.c.inputs {
+		if input.recursive {
+			w.AddRecursive(input.path)
 		} else {
-			w.w.Add(input.Path)
+			w.Add(input.path)
 		}
 	}
 	err = collect(w.c)
@@ -44,12 +44,12 @@ func (w *watcher) watch() (err error) {
 	}
 	for {
 		select {
-		case e := <-w.w.Events:
+		case e := <-w.Events:
 			if e.Op != fsnotify.Chmod {
-				writeLog("%s changed; rebuilding %s", e.Name, w.c.Output)
+				writeLog("%s changed; rebuilding %s", e.Name, w.c.output)
 				err = collect(w.c)
 			}
-		case err = <-w.w.Errors:
+		case err = <-w.Errors:
 			return
 		}
 	}

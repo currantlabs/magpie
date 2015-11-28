@@ -7,85 +7,85 @@ import (
 )
 
 type input struct {
-	Path      string
-	Recursive bool
+	path      string
+	recursive bool
 }
 
 type config struct {
-	Inputs     []*input
-	Package    string
-	Tags       []string
-	Output     string
-	Prefix     string
-	Unsafe     bool
-	Compress   bool
-	Mode       uint
-	ModTime    int64
-	Ignore     []*regexp.Regexp
-	FileSystem bool
+	nest        string
+	inputs      []*input
+	packageName string
+	tags        []string
+	output      string
+	prefix      string
+	unsafe      bool
+	compress    bool
+	fileMode    uint
+	fileModTime int64
+	ignore      []*regexp.Regexp
+	fileSystem  bool
+	live        bool
 }
 
 func newConfig() *config {
 	return &config{
-		Output:   "magpie.go",
-		Compress: true,
+		nest: "Nest",
+		output:   "magpie.go",
+		compress: true,
 	}
 }
 
-func buildConfig(configPath string, paths []string, options ...Option) ([]*config, error) {
+func buildConfig(configPath string, cliInputPaths []string, cliOptions ...Option) ([]*config, error) {
 	baseConfig := newConfig()
 	var configs []*config
-	rootJSON, err := getJSONConfig(configPath)
+	configJSON, err := getJSONConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
-	if rootJSON != nil {
-		mergeConfig(baseConfig, rootJSON.configJSON)
-		for _, option := range options {
+	if configJSON != nil {
+		for _, option := range getCommonOptionsJSON(configJSON.commonOptionsJSON) {
 			option(baseConfig)
 		}
-		for _, asset := range rootJSON.Assets {
+		for _, option := range cliOptions {
+			option(baseConfig)
+		}
+		for _, asset := range configJSON.Assets {
 			pc := *baseConfig
-			mergeConfig(&pc, asset.configJSON)
-			pc.Inputs = make([]*input, len(asset.Paths))
+			for _, option := range getAssetJSONOptions(asset) {
+				option(&pc)
+			}
+			pc.inputs = make([]*input, len(asset.Paths))
 			for i, path := range asset.Paths {
-				pc.Inputs[i] = parsePath(path)
+				pc.inputs[i] = parseInputPath(path)
 			}
 			configs = append(configs, &pc)
 		}
 	} else {
-		for _, option := range options {
+		for _, option := range cliOptions {
 			option(baseConfig)
 		}
 	}
-	if len(paths) > 0 {
+	if len(cliInputPaths) > 0 {
 		pc := *baseConfig
-		pc.Inputs = make([]*input, len(paths))
-		for i, path := range paths {
-			pc.Inputs[i] = parsePath(path)
+		pc.inputs = make([]*input, len(cliInputPaths))
+		for i, path := range cliInputPaths {
+			pc.inputs[i] = parseInputPath(path)
 		}
 		configs = append(configs, &pc)
 	}
 	return configs, nil
 }
 
-func mergeConfig(c *config, json configJSON) {
-	for _, option := range getJSONOptions(json) {
-		option(c)
-	}
-}
-
-func parsePath(path string) *input {
+func parseInputPath(path string) *input {
 	if strings.HasSuffix(path, "/...") {
 		return &input{
-			Path:      filepath.Clean(path[:len(path)-4]),
-			Recursive: true,
+			path:      filepath.Clean(path[:len(path)-4]),
+			recursive: true,
 		}
 	} else {
 		return &input{
-			Path:      filepath.Clean(path),
-			Recursive: false,
+			path:      filepath.Clean(path),
+			recursive: false,
 		}
 	}
-
 }

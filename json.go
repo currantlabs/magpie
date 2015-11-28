@@ -7,34 +7,35 @@ import (
 	"os"
 )
 
-type configJSON struct {
-	Tags    []string `json:"tags"`
-	Ignore  []string `json:"ignore"`
-	Runtime *struct {
-		Unsafe   *bool `json:"unsafe"`
-		Compress *bool `json:"compress"`
-	} `json:"runtime"`
+type commonOptionsJSON struct {
+	Ignore     []string `json:"ignore"`
 	Attributes *struct {
 		Mode    *uint  `json:"mode"`
 		ModTime *int64 `json:"modtime"`
 	} `json:"attributes"`
-	Prefix     *string `json:"prefix"`
-	Output     string  `json:"output"`
-	Package    string  `json:"package"`
-	FileSystem *bool   `json:"fileSystem"`
+	Runtime *struct {
+		Unsafe   *bool `json:"unsafe"`
+		Compress *bool `json:"compress"`
+	} `json:"runtime"`
+	Tags       []string `json:"tags"`
+	FileSystem *bool    `json:"fileSystem"`
 }
 
-type assetJSON struct {
-	configJSON
-	Paths []string `json:"paths`
-}
-
-type rootConfigJSON struct {
-	configJSON
+type configJSON struct {
+	commonOptionsJSON
 	Assets []assetJSON `json:assets`
 }
 
-func getJSONConfig(configPath string) (*rootConfigJSON, error) {
+type assetJSON struct {
+	commonOptionsJSON
+	Nest    string   `json:"nest"`
+	Paths   []string `json:"paths`
+	Output  string   `json:"output"`
+	Package string   `json:"package"`
+	Prefix  *string  `json:"prefix"`
+}
+
+func getJSONConfig(configPath string) (*configJSON, error) {
 	if configPath == "" {
 		// If there's no config file specified, look for a local magpie.json
 		root, err := getJSONConfig("magpie.json")
@@ -49,7 +50,7 @@ func getJSONConfig(configPath string) (*rootConfigJSON, error) {
 		return nil, err
 	}
 
-	var root rootConfigJSON
+	var root configJSON
 	err = json.Unmarshal(file, &root)
 	if err != nil {
 		fmt.Printf("JSON error: %v\n", err)
@@ -58,7 +59,7 @@ func getJSONConfig(configPath string) (*rootConfigJSON, error) {
 	return &root, nil
 }
 
-func getJSONOptions(json configJSON) []Option {
+func getCommonOptionsJSON(json commonOptionsJSON) []Option {
 	var options []Option
 	if json.Tags != nil {
 		options = append(options, Tags(json.Tags))
@@ -82,6 +83,14 @@ func getJSONOptions(json configJSON) []Option {
 			options = append(options, OverrideFileModTime(*json.Attributes.ModTime))
 		}
 	}
+	if json.FileSystem != nil {
+		options = append(options, CreateFileSystem(*json.FileSystem))
+	}
+	return options
+}
+
+func getAssetJSONOptions(json assetJSON) []Option {
+	var options = getCommonOptionsJSON(json.commonOptionsJSON)
 	if json.Package != "" {
 		options = append(options, PackageName(json.Package))
 	}
@@ -91,8 +100,8 @@ func getJSONOptions(json configJSON) []Option {
 	if json.Output != "" {
 		options = append(options, OutputFile(json.Output))
 	}
-	if json.FileSystem != nil {
-		options = append(options, CreateFileSystem(*json.FileSystem))
+	if json.Nest != "" {
+		options = append(options, NestName(json.Output))
 	}
 	return options
 }

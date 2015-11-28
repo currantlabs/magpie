@@ -2,22 +2,21 @@ package magpie
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"strings"
 )
 
-func NewFileSystem(assets map[string]*Asset, prefix string) http.FileSystem {
+func NewFileSystem(nest Nest, prefix string) http.FileSystem {
 	return &fileSystem{
 		prefix: prefix,
-		assets: assets,
+		nest:   nest,
 	}
 }
 
 type fileSystem struct {
 	prefix string
-	assets map[string]*Asset
+	nest   Nest
 }
 
 func (fs *fileSystem) Open(name string) (http.File, error) {
@@ -30,8 +29,9 @@ func (fs *fileSystem) Open(name string) (http.File, error) {
 	if len(name) > 0 && name[0] == '/' {
 		name = name[1:]
 	}
-	if asset, ok := fs.assets[name]; ok {
-		return newFile(asset), nil
+	a, err := fs.nest(name)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("Unknown asset: %s", name)
+	return newFile(a), nil
 }

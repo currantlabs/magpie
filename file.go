@@ -29,8 +29,8 @@ func findFiles(c *config) (*fileCollection, error) {
 		visited:   make(map[string]bool),
 		constants: make(map[string]int),
 	}
-	for _, dir := range c.Inputs {
-		err := find(dir.Path, dir.Recursive, c.Prefix, a, c)
+	for _, dir := range c.inputs {
+		err := find(dir.path, dir.recursive, c.prefix, a, c)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +75,7 @@ func find(dir string, recursive bool, prefix string, fc *fileCollection, c *conf
 	for _, file := range list {
 		p := filepath.Join(path, file.Name())
 		var ignored bool
-		for _, pattern := range c.Ignore {
+		for _, pattern := range c.ignore {
 			if pattern.MatchString(p) {
 				ignored = true
 				break

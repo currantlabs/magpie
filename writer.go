@@ -46,12 +46,12 @@ func (w *writer) Close() error {
 }
 
 func writeNest(fc *fileCollection, c *config) (err error) {
-	err = os.MkdirAll(filepath.Dir(c.Output), os.ModePerm)
+	err = os.MkdirAll(filepath.Dir(c.output), os.ModePerm)
 	if err != nil {
 		return
 	}
 
-	fd, err := os.Create(c.Output)
+	fd, err := os.Create(c.output)
 	if err != nil {
 		return
 	}
@@ -71,13 +71,8 @@ func writeNest(fc *fileCollection, c *config) (err error) {
 		return
 	}
 
-	err = writeContent(w)
-	if err != nil {
-		return
-	}
-
-	if c.FileSystem {
-		err = writeFileSystem(w)
+	if c.fileSystem {
+		err = writeFileSystem(w, c)
 		if err != nil {
 			return
 		}
@@ -112,15 +107,15 @@ func writeHeader(w io.Writer, fc *fileCollection, c *config) (err error) {
 		return
 	}
 	// Write build tags, if applicable.
-	if len(c.Tags) > 0 {
-		if _, err = fmt.Fprintf(w, "// +build %s\n\n", strings.Join(c.Tags, " ")); err != nil {
+	if len(c.tags) > 0 {
+		if _, err = fmt.Fprintf(w, "// +build %s\n\n", strings.Join(c.tags, " ")); err != nil {
 			return
 		}
 	}
 
-	packageName := c.Package
+	packageName := c.packageName
 	if packageName == "" {
-		outpath, _ := filepath.Abs(c.Output)
+		outpath, _ := filepath.Abs(c.output)
 		outpath = filepath.Dir(outpath)
 		path := filepath.Base(outpath)
 		if path != "" {
@@ -137,12 +132,12 @@ func writeHeader(w io.Writer, fc *fileCollection, c *config) (err error) {
 		return
 	}
 
-	imports := []string{"fmt", "os", "time"}
+	imports := []string{"os", "time"}
 
-	if c.FileSystem {
+	if c.fileSystem {
 		imports = append(imports, "net/http")
 	}
-	if c.Unsafe {
+	if c.unsafe {
 		imports = append(imports, "reflect", "unsafe")
 	}
 
@@ -162,13 +157,13 @@ func writeHeader(w io.Writer, fc *fileCollection, c *config) (err error) {
 
 	}
 
-	_, err = fmt.Fprint(w, `
+	_, err = fmt.Fprintf(w, `
 	"github.com/currantlabs/magpie"
 )
 
-var assets map[string]*magpie.Asset
+var %s magpie.Nest
 
-`)
+`, c.nest)
 	if err != nil {
 		return
 	}
@@ -192,13 +187,21 @@ func writeInit(w assetWriter, fc *fileCollection, c *config) (err error) {
 
 	writeRead(w, c)
 
-	_, err = fmt.Fprintf(w, "\n\tassets = make(map[string]*magpie.Asset, %d)\n", len(fc.assets))
+	_, err = fmt.Fprintf(w, "\n\tvar assets = make(map[string]*magpie.Asset, %d)\n", len(fc.assets))
 	if err != nil {
 		return
 	}
 
 	for _, asset := range fc.assets {
-		insertAsset(w, asset, c)
+		err = insertAsset(w, asset, c)
+		if err != nil {
+			return
+		}
+	}
+
+	_, err = fmt.Fprintf(w, "\n\t%s = magpie.NewNest(assets)\n", c.nest)
+	if err != nil {
+		return
 	}
 
 	_, err = fmt.Fprintf(w, "}\n")
@@ -214,7 +217,7 @@ func writeRead(w io.Writer, c *config) (err error) {
 	if err != nil {
 		return
 	}
-	if c.Unsafe {
+	if c.unsafe {
 		_, err = fmt.Fprintf(w, `		var empty [0]byte
 		sx := (*reflect.StringHeader)(unsafe.Pointer(&s))
 		b := empty[:]
@@ -230,7 +233,7 @@ func writeRead(w io.Writer, c *config) (err error) {
 		_, err = fmt.Fprintf(w, `		b := []byte(s)
 `)
 	}
-	if c.Compress {
+	if c.compress {
 		_, err = fmt.Fprint(w, `		b, err := magpie.Decompress(b)
 		if err != nil {
 			panic("Error decompressing asset" + err.Error())
@@ -268,11 +271,11 @@ func writeAsset(w assetWriter, a asset, c *config) error {
 
 	var wr io.WriteCloser
 	wr = &writer{assetWriter: w}
-	if c.Compress {
+	if c.compress {
 		wr = gzip.NewWriter(wr)
 	}
 	_, err = io.Copy(wr, fd)
-	if c.Compress {
+	if c.compress {
 		wr.Close()
 	}
 	_, err = fmt.Fprintf(w, "\"\n")
@@ -282,23 +285,11 @@ func writeAsset(w assetWriter, a asset, c *config) error {
 	return nil
 }
 
-func writeContent(w io.Writer) (err error) {
-	fmt.Fprint(w, `
-func Content(name string) ([]byte, error) {
-	if a, ok := assets[name]; ok {
-		return a.Content, nil
-	}
-	return nil, fmt.Errorf("Asset %s not found", name)
-}
-`)
-	return
-}
-
-func writeFileSystem(w io.Writer) (err error) {
-	fmt.Fprint(w, `
+func writeFileSystem(w io.Writer, c *config) (err error) {
+	fmt.Fprintf(w, `
 func FileSystem(prefix string) http.FileSystem {
-	return magpie.NewFileSystem(assets, prefix)
+	return magpie.NewFileSystem(%s, prefix)
 }
-`)
+`, c.nest)
 	return
 }
