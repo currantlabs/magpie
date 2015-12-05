@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"encoding/ascii85"
 )
 
 const hex = "0123456789abcdef"
@@ -187,16 +188,9 @@ func writeInit(w assetWriter, fc *fileCollection, c *config) (err error) {
 
 	writeRead(w, c)
 
-	_, err = fmt.Fprintf(w, "\n\tvar assets = make(map[string]*magpie.Asset, %d)\n", len(fc.assets))
+	err = insertAssets(w, fc, c)
 	if err != nil {
 		return
-	}
-
-	for _, asset := range fc.assets {
-		err = insertAsset(w, asset, c)
-		if err != nil {
-			return
-		}
 	}
 
 	_, err = fmt.Fprintf(w, "\n\t%s = magpie.NewNest(assets)\n", c.nest)
@@ -225,7 +219,7 @@ func writeRead(w io.Writer, c *config) (err error) {
 		bx.Data = sx.Data
 		bx.Len = len(s)
 		bx.Cap = bx.Len
-	`)
+`)
 		if err != nil {
 			return
 		}
@@ -246,16 +240,28 @@ func writeRead(w io.Writer, c *config) (err error) {
 	return
 }
 
-func insertAsset(w io.Writer, a asset, c *config) (err error) {
+func insertAssets(w io.Writer, fc *fileCollection, c *config) (err error) {
 	// NewAsset(name string, content []byte, size int64, mode os.FileMode, modTime time.Time) *Asset
-	_, err = fmt.Fprintf(w, "\tassets[%q] = magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0))\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix())
+
+	_, err = fmt.Fprint(w, "\n\tvar assets = map[string]magpie.Asset{\n")
 	if err != nil {
 		return
 	}
+	for _, a := range fc.assets {
+		fmt.Printf("Hash length:%v\n", a.hash)
+		hash := make([]byte, ascii85.MaxEncodedLen(len(a.hash)))
+		l := ascii85.Encode(hash, a.hash)
+		_, err = fmt.Fprintf(w, "\t\t%q: magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), string(hash[:l]))
+		if err != nil {
+			return
+		}
+
+	}
+	_, err = fmt.Fprint(w, "\n\t}\n")
 	return
 }
 
-func writeAsset(w assetWriter, a asset, c *config) error {
+func writeAsset(w assetWriter, a *asset, c *config) error {
 	fd, err := os.Open(a.path)
 	if err != nil {
 		return err
@@ -270,14 +276,18 @@ func writeAsset(w assetWriter, a asset, c *config) error {
 	}
 
 	var wr io.WriteCloser
-	wr = &writer{assetWriter: w}
+	hr := newHashWriter(&writer{assetWriter: w})
 	if c.compress {
-		wr = gzip.NewWriter(wr)
+		wr = gzip.NewWriter(hr)
+	} else {
+		wr = hr
 	}
 	_, err = io.Copy(wr, fd)
 	if c.compress {
 		wr.Close()
 	}
+	a.hash = hr.Sum(nil)
+	println()
 	_, err = fmt.Fprintf(w, "\"\n")
 	if err != nil {
 		return err

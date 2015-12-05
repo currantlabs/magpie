@@ -11,15 +11,17 @@ type Asset struct {
 	size    int64
 	mode    os.FileMode
 	modTime time.Time
+	url string
 }
 
-func NewAsset(name string, content []byte, size int64, mode os.FileMode, modTime time.Time) *Asset {
-	return &Asset{
+func NewAsset(name string, content []byte, size int64, mode os.FileMode, modTime time.Time, hash string) Asset {
+	return Asset{
 		name:    name,
 		Content: content,
 		size:    size,
 		mode:    mode,
 		modTime: modTime,
+		url: name + "?" + hash,
 	}
 }
 
@@ -45,4 +47,8 @@ func (a Asset) IsDir() bool {
 
 func (a Asset) Sys() interface{} {
 	return nil
+}
+
+func (a Asset) URL() string {
+	return a.url
 }

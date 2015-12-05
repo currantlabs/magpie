@@ -16,12 +16,13 @@ type asset struct {
 	name     string
 	constant string
 	info     os.FileInfo
+	hash []byte
 }
 
 type fileCollection struct {
 	visited   map[string]bool
 	constants map[string]int
-	assets    []asset
+	assets    []*asset
 }
 
 func findFiles(c *config) (*fileCollection, error) {
@@ -122,7 +123,7 @@ func find(dir string, recursive bool, prefix string, fc *fileCollection, c *conf
 		a.path, _ = filepath.Abs(p)
 		a.constant = safeConstantName(a.name, fc)
 		a.info = file
-		fc.assets = append(fc.assets, a)
+		fc.assets = append(fc.assets, &a)
 	}
 	return nil
 }

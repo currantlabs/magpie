@@ -7,7 +7,7 @@ import (
 )
 
 type fileInfo struct {
-	*Asset
+	Asset
 	*bytes.Reader
 }
 
@@ -23,7 +23,7 @@ func (f *fileInfo) Close() error {
 	return nil
 }
 
-func newFile(asset *Asset) *fileInfo {
+func newFile(asset Asset) *fileInfo {
 	return &fileInfo{
 		Asset:  asset,
 		Reader: bytes.NewReader(asset.Content),
