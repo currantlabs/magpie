@@ -11,7 +11,7 @@ type Asset struct {
 	size    int64
 	mode    os.FileMode
 	modTime time.Time
-	url string
+	url     string
 }
 
 func NewAsset(name string, content []byte, size int64, mode os.FileMode, modTime time.Time, hash string) Asset {
@@ -21,7 +21,7 @@ func NewAsset(name string, content []byte, size int64, mode os.FileMode, modTime
 		size:    size,
 		mode:    mode,
 		modTime: modTime,
-		url: name + "?" + hash,
+		url:     name + "?" + hash,
 	}
 }
 

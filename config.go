@@ -29,7 +29,7 @@ type config struct {
 
 func newConfig() *config {
 	return &config{
-		nest: "Nest",
+		nest:     "Nest",
 		output:   "magpie.go",
 		compress: true,
 	}

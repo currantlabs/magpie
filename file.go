@@ -16,7 +16,7 @@ type asset struct {
 	name     string
 	constant string
 	info     os.FileInfo
-	hash []byte
+	hash     []byte
 }
 
 type fileCollection struct {

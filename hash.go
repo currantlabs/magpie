@@ -1,8 +1,9 @@
 package magpie
+
 import (
-	"io"
-	"hash"
 	"crypto/sha1"
+	"hash"
+	"io"
 )
 
 type hashWriter struct {
@@ -13,7 +14,7 @@ type hashWriter struct {
 func newHashWriter(w io.WriteCloser) *hashWriter {
 	return &hashWriter{
 		WriteCloser: w,
-		Hash: sha1.New(),
+		Hash:        sha1.New(),
 	}
 }
 
