@@ -3,13 +3,13 @@ package magpie
 import (
 	"bufio"
 	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"encoding/ascii85"
 )
 
 const hex = "0123456789abcdef"
@@ -139,20 +139,20 @@ func writePackage(w assetWriter, fc *fileCollection, c *config) (err error) {
 	}
 
 	if fc != nil {
-	var wd string
-	wd, err = os.Getwd()
-	if err != nil {
-		return
-	}
-
-	for _, asset := range fc.assets {
-		//println("WD", wd)
-		//println("path", asset.path)
-		relative, _ := filepath.Rel(wd, asset.path)
-		if _, err = fmt.Fprintf(w, "// %s\n", relative); err != nil {
-			return err
+		var wd string
+		wd, err = os.Getwd()
+		if err != nil {
+			return
 		}
-	}
+
+		for _, asset := range fc.assets {
+			//println("WD", wd)
+			//println("path", asset.path)
+			relative, _ := filepath.Rel(wd, asset.path)
+			if _, err = fmt.Fprintf(w, "// %s\n", relative); err != nil {
+				return err
+			}
+		}
 	}
 
 	if _, err = fmt.Fprint(w, "// DO NOT EDIT!\n\n"); err != nil {
@@ -261,9 +261,8 @@ func insertAssets(w io.Writer, fc *fileCollection, c *config) (err error) {
 	}
 	for _, a := range fc.assets {
 		fmt.Printf("Hash length:%v\n", a.hash)
-		hash := make([]byte, ascii85.MaxEncodedLen(len(a.hash)))
-		l := ascii85.Encode(hash, a.hash)
-		_, err = fmt.Fprintf(w, "\t\t%q: magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), string(hash[:l]))
+		l := base64.StdEncoding.EncodeToString(a.hash)
+		_, err = fmt.Fprintf(w, "\t\t%q: magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), l)
 		if err != nil {
 			return
 		}
