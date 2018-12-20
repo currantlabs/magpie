@@ -1,4 +1,4 @@
-package magpie
+package main
 
 import (
 	"github.com/dietsche/rfsnotify"
@@ -38,16 +38,22 @@ func (w *watcher) watch() (err error) {
 			w.Add(input.path)
 		}
 	}
-	err = collect(w.c)
+	err = collect(w.c, "")
 	if err != nil {
 		return
 	}
 	for {
 		select {
 		case e := <-w.Events:
-			if e.Op != fsnotify.Chmod {
+			switch e.Op {
+			case fsnotify.Create:
+				writeLog("%s added; rebuilding %s", e.Name, w.c.output)
+				err = collect(w.c, e.Name)
+			case fsnotify.Write:
 				writeLog("%s changed; rebuilding %s", e.Name, w.c.output)
-				err = collect(w.c)
+				err = collect(w.c, e.Name)
+			case fsnotify.Chmod:
+				continue
 			}
 		case err = <-w.Errors:
 			return

@@ -1,4 +1,4 @@
-package magpie
+package main
 
 import (
 	"crypto/sha1"
@@ -19,7 +19,6 @@ func newHashWriter(w io.WriteCloser) *hashWriter {
 }
 
 func (hw *hashWriter) Write(p []byte) (n int, err error) {
-	println("hashWriter writing")
 	hw.Hash.Write(p)
 	return hw.WriteCloser.Write(p)
 }

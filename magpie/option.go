@@ -1,4 +1,4 @@
-package magpie
+package main
 
 import "regexp"
 

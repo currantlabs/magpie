@@ -1,4 +1,4 @@
-package magpie
+package main
 
 import (
 	"bufio"
@@ -46,7 +46,7 @@ func (w *writer) Close() error {
 	return nil
 }
 
-func writeNest(fc *fileCollection, c *config) (err error) {
+func writeNest(fc *fileCollection, c *config, whitelistPath string) (err error) {
 	err = os.MkdirAll(filepath.Dir(c.output), os.ModePerm)
 	if err != nil {
 		return
@@ -70,6 +70,25 @@ func writeNest(fc *fileCollection, c *config) (err error) {
 	err = writeInit(w, fc, c)
 	if err != nil {
 		return
+	}
+
+	var assetKeys []string
+	for assetKey := range fc.assets {
+		assetKeys = append(assetKeys, assetKey)
+	}
+	sort.Strings(assetKeys)
+
+	for _, assetKey := range assetKeys {
+		asset := fc.assets[assetKey]
+		if whitelistPath != "" {
+			//writeLog("whitelistPath %s asset.path %s", whitelistPath, asset.path)
+			if strings.HasSuffix(asset.path, whitelistPath) {
+				writeLog("writing %s to %s", asset.path, "/assets_" + asset.constant + ".go")
+				writeAssetFile(asset, c)
+			}
+		} else {
+			writeAssetFile(asset, c)
+		}
 	}
 
 	if c.fileSystem {
@@ -145,11 +164,17 @@ func writePackage(w assetWriter, fc *fileCollection, c *config) (err error) {
 			return
 		}
 
+		var paths []string
 		for _, asset := range fc.assets {
+			relative, _ := filepath.Rel(wd, asset.path)
+			paths = append(paths, relative)
+		}
+		sort.Strings(paths)
+
+		for _, path := range paths {
 			//println("WD", wd)
 			//println("path", asset.path)
-			relative, _ := filepath.Rel(wd, asset.path)
-			if _, err = fmt.Fprintf(w, "// %s\n", relative); err != nil {
+			if _, err = fmt.Fprintf(w, "// %s\n", path); err != nil {
 				return err
 			}
 		}
@@ -192,10 +217,6 @@ func writeInit(w assetWriter, fc *fileCollection, c *config) (err error) {
 	_, err = fmt.Fprintf(w, "\n")
 	if err != nil {
 		return
-	}
-
-	for _, asset := range fc.assets {
-		writeAssetFile(asset, c)
 	}
 
 	writeRead(w, c)
@@ -260,7 +281,6 @@ func insertAssets(w io.Writer, fc *fileCollection, c *config) (err error) {
 		return
 	}
 	for _, a := range fc.assets {
-		fmt.Printf("Hash length:%v\n", a.hash)
 		l := base64.StdEncoding.EncodeToString(a.hash)
 		_, err = fmt.Fprintf(w, "\t\t%q: magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), l)
 		if err != nil {
@@ -306,7 +326,7 @@ func writeAsset(w assetWriter, a *asset, c *config) error {
 	defer fd.Close()
 	// TODO: Compress
 
-	_, err = fmt.Fprintf(w, "\tconst _%s = \"", a.constant)
+	_, err = fmt.Fprintf(w, "const _%s = \"", a.constant)
 	if err != nil {
 		return err
 	}
@@ -323,7 +343,6 @@ func writeAsset(w assetWriter, a *asset, c *config) error {
 		wr.Close()
 	}
 	a.hash = hr.Sum(nil)
-	println()
 	_, err = fmt.Fprintf(w, "\"\n")
 	if err != nil {
 		return err

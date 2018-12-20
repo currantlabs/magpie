@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
 	"github.com/codegangsta/cli"
-	"github.com/currantlabs/magpie"
 )
 
 const configFlag = "config"
@@ -23,7 +23,6 @@ const ignoreFlag = "ignore"
 const watchFlag = "watch"
 
 func main() {
-
 	app := cli.NewApp()
 	app.Name = "magpie"
 	app.Usage = "Bundle files into a go binary"
@@ -87,7 +86,7 @@ func action(c *cli.Context) {
 		fmt.Printf("Error reading options: %v", err)
 		os.Exit(1)
 	}
-	m, err := magpie.New(configFile, c.Args(), options...)
+	m, err := New(configFile, c.Args(), options...)
 	if err != nil {
 		fmt.Printf("Error initializing: %v", err)
 		os.Exit(1)
@@ -104,22 +103,22 @@ func action(c *cli.Context) {
 	}
 }
 
-func getOptions(c *cli.Context) ([]magpie.Option, error) {
-	var options []magpie.Option
+func getOptions(c *cli.Context) ([]Option, error) {
+	var options []Option
 	if c.IsSet(tagFlag) {
-		options = append(options, magpie.Tags(c.StringSlice(tagFlag)))
+		options = append(options, Tags(c.StringSlice(tagFlag)))
 	}
 	if c.IsSet(prefixFlag) {
-		options = append(options, magpie.Prefix(c.String(prefixFlag)))
+		options = append(options, Prefix(c.String(prefixFlag)))
 	}
 	if c.IsSet(packageNameFlag) {
-		options = append(options, magpie.PackageName(c.String(packageNameFlag)))
+		options = append(options, PackageName(c.String(packageNameFlag)))
 	}
 	if c.IsSet(unsafeFlag) {
-		options = append(options, magpie.Unsafe(c.Bool(unsafeFlag)))
+		options = append(options, Unsafe(c.Bool(unsafeFlag)))
 	}
 	if c.IsSet(compressFlag) {
-		options = append(options, magpie.Compress(c.BoolT(compressFlag)))
+		options = append(options, Compress(c.BoolT(compressFlag)))
 	}
 	if c.IsSet(fileModeFlag) {
 		fileMode := c.String(fileModeFlag)
@@ -128,7 +127,7 @@ func getOptions(c *cli.Context) ([]magpie.Option, error) {
 			if err != nil {
 				return nil, err
 			}
-			options = append(options, magpie.OverrideFileMode(uint(n)))
+			options = append(options, OverrideFileMode(uint(n)))
 		}
 	}
 	if c.IsSet(fileModTimeFlag) {
@@ -138,14 +137,22 @@ func getOptions(c *cli.Context) ([]magpie.Option, error) {
 			if err != nil {
 				return nil, err
 			}
-			options = append(options, magpie.OverrideFileModTime(n))
+			options = append(options, OverrideFileModTime(n))
 		}
 	}
 	if c.IsSet(outputFlag) {
-		options = append(options, magpie.OutputFile(c.String(outputFlag)))
+		options = append(options, OutputFile(c.String(outputFlag)))
 	}
 	if c.IsSet(ignoreFlag) {
-		options = append(options, magpie.Ignore(c.StringSlice(ignoreFlag)))
+		options = append(options, Ignore(c.StringSlice(ignoreFlag)))
 	}
 	return options, nil
 }
+
+
+var logger = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+
+func writeLog(format string, args ...interface{}) {
+	logger.Output(2, fmt.Sprintf(format, args...))
+}
+

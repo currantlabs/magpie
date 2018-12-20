@@ -1,8 +1,10 @@
-package magpie
+package main
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,13 +24,14 @@ type asset struct {
 type fileCollection struct {
 	visited   map[string]bool
 	constants map[string]int
-	assets    []*asset
+	assets    map[string]*asset
 }
 
 func findFiles(c *config) (*fileCollection, error) {
 	a := &fileCollection{
 		visited:   make(map[string]bool),
 		constants: make(map[string]int),
+		assets:make(map[string]*asset),
 	}
 	for _, dir := range c.inputs {
 		err := find(dir.path, dir.recursive, c.prefix, a, c)
@@ -123,7 +126,13 @@ func find(dir string, recursive bool, prefix string, fc *fileCollection, c *conf
 		a.path, _ = filepath.Abs(p)
 		a.constant = safeConstantName(a.name, fc)
 		a.info = file
-		fc.assets = append(fc.assets, &a)
+		b, err := ioutil.ReadFile(a.path)
+		if err != nil  {
+			return err
+		}
+		sha := sha1.Sum(b)
+		a.hash = sha[:]
+		fc.assets[a.path] = &a
 	}
 	return nil
 }
