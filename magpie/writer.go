@@ -280,15 +280,24 @@ func insertAssets(w io.Writer, fc *fileCollection, c *config) (err error) {
 	if err != nil {
 		return
 	}
-	for _, a := range fc.assets {
+	longestAssetName := 0
+	assetNames := make([]string, 0, len(fc.assets))
+	for assetName, a := range fc.assets {
+		assetNames = append(assetNames,assetName)
+		if len(a.name) > longestAssetName {
+			longestAssetName = len(a.name)
+		}
+	}
+	sort.Strings(assetNames)
+	for _, assetName := range assetNames {
+		a := fc.assets[assetName]
 		l := base64.StdEncoding.EncodeToString(a.hash)
-		_, err = fmt.Fprintf(w, "\t\t%q: magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), l)
+		_, err = fmt.Fprintf(w, "\t\t%q:%s magpie.NewAsset(%q, read(_%s), %d, os.FileMode(%d), time.Unix(%d, 0), %q),\n", a.name, strings.Repeat(" ", longestAssetName - len(a.name)), a.name, a.constant, a.info.Size(), a.info.Mode(), a.info.ModTime().Unix(), l)
 		if err != nil {
 			return
 		}
-
 	}
-	_, err = fmt.Fprint(w, "\n\t}\n")
+	_, err = fmt.Fprint(w, "\t}\n")
 	return
 }
 
